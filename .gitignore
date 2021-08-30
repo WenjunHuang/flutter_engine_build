@@ -1,0 +1,4 @@
+engine/
+depot_tools/
+.vscode/
+engine_out/
