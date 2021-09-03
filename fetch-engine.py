@@ -18,11 +18,20 @@ except  OSError:
 
 shutil.copy("gclientconfig",os.path.join(engine_path,".gclient"))
 
+isWin = True if sys.platform=='win32' else False
+
 env = os.environ.copy()
-env["PATH"] = env["PATH"]+ ";%s" % depot_tools_path
+path = depot_tools_path + (";" if isWin  else ":") + env["PATH"]
+env["PATH"] = path
+print(path)
 env["HTTP_PROXY"] = "http://127.0.0.1:9798"
 env["HTTPS_PROXY"] = "http://127.0.0.1:9798"
-env["DEPOT_TOOLS_WIN_TOOLCHAIN"] = "0"
+
+gclient_sufix = ""
+if isWin:
+    env["DEPOT_TOOLS_WIN_TOOLCHAIN"] = "0"
+    gclient_sufix = '.bat'
+    
 os.chdir(engine_path)
-revision = sys.argv[1] if len(sys.argv) > 1 else ""
-subprocess.run([os.path.join(depot_tools_path,"gclient.bat"),"sync","-r",revision],env=env)
+revision = ["-r",sys.argv[1]] if len(sys.argv) > 1 else []
+subprocess.run([os.path.join(depot_tools_path,"gclient"+gclient_sufix),"sync"] + revision,env=env)
