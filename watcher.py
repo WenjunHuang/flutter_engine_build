@@ -27,15 +27,21 @@ class ConsumerObserver(Observer):
 
         engine_path = os.path.join(os.getcwd(), "engine")
         depot_tools_path = os.path.join(os.getcwd(), "depot_tools")
-        subprocess.run([os.path.join(depot_tools_path, "ninja.exe"), "-C",
-                        os.path.join(engine_path, "src", "out", "host_debug_unopt")], env=env, shell=True, check=True)
+        try:
+            subprocess.run([os.path.join(depot_tools_path, "ninja.exe"), "-C",
+                            os.path.join(engine_path, "src", "out", "host_debug_unopt")], env=env,
+                           check=True)
+            print("done compile")
 
-        unittest_path = os.path.join(engine_path, "src", "out", "host_debug_unopt")
-        subprocess.run([os.path.join(unittest_path, "tonic_unittests.exe"),
-                        "--gtest_filter=-*TimeSensitiveTest*",
-                        "--gtest_repeat=2", "--gtest_shuffle", ],
-                       shell=True,
-                       check=True)
+            unittest_path = os.path.join(engine_path, "src", "out", "host_debug_unopt")
+            subprocess.run([os.path.join(unittest_path, "tonic_native_dart_class_unittests.exe"),
+                            "--gtest_filter=-*TimeSensitiveTest*",
+                            "--gtest_shuffle", ],
+                           check=True)
+            print("done test")
+        except:
+            print("exception")
+            pass
 
     def on_error(self, error: Exception) -> None:
         pass
@@ -48,7 +54,7 @@ if __name__ == "__main__":
     build_subject = s.Subject()
     build_subject.pipe(
         ops.debounce(0.2)
-    ).subscribe(BackPressure.DROP(ConsumerObserver(), 0))
+    ).subscribe(BackPressure.DROP(ConsumerObserver(), 1))
 
 
     def on_created(event):
