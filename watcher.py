@@ -4,32 +4,14 @@ import subprocess
 import time
 from rx import operators as ops
 from rx import subject as s
+from rxpy_backpressure import BackPressure
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
-if __name__ == "__main__":
-    build_subject = s.Subject()
-    build_subject.pipe(
-        ops.debounce(0.2)
-    ).subscribe(lambda value: rebuild())
 
-
-    def on_created(event):
-        print(f"{event.src_path} has been created!")
-        build_subject.on_next(1)
-
-
-    def on_deleted(event):
-        print(f"Someone deleted {event.src_path}!")
-        build_subject.on_next(1)
-
-
-    def on_modified(event):
+class ConsumerObserver(Observer):
+    def on_next(self, event) -> None:
         print(f"{event.src_path} has been modified")
-        build_subject.on_next(1)
-
-
-    def rebuild():
         # visual studio 2019安装路径
         vs_path = r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community"
         # windows kits 安装路径
@@ -54,6 +36,31 @@ if __name__ == "__main__":
                         "--gtest_repeat=2", "--gtest_shuffle", ],
                        shell=True,
                        check=True)
+
+    def on_error(self, error: Exception) -> None:
+        pass
+
+    def on_completed(self) -> None:
+        pass
+
+
+if __name__ == "__main__":
+    build_subject = s.Subject()
+    build_subject.pipe(
+        ops.debounce(0.2)
+    ).subscribe(BackPressure.DROP(ConsumerObserver(), 0))
+
+
+    def on_created(event):
+        build_subject.on_next(event)
+
+
+    def on_deleted(event):
+        build_subject.on_next(event)
+
+
+    def on_modified(event):
+        build_subject.on_next(event)
 
 
     patterns = ["*.c", "*.cc", "*.h", "*.gn", "*.dart"]
