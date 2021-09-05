@@ -43,7 +43,8 @@ class RebuildAndRunTestObserver(Observer):
 
             # then run unit tests
             # unittest_name = "tonic_native_dart_class"
-            unittest_name = "my_smartpointer"
+            # unittest_name = "my_fml_file"
+            unittest_name = sys.argv[1]
             subprocess.run([os.path.join(output, unittest_name + "_unittests" + (".exe" if is_win else "")),
                             "--gtest_filter=-*TimeSensitiveTest*",
                             "--gtest_shuffle", ],
@@ -57,6 +58,10 @@ class RebuildAndRunTestObserver(Observer):
     def on_completed(self):
         pass
 
+
+if len(sys.argv) == 1:
+    print("Please specify test name")
+    sys.exit(1)
 
 build_subject = s.Subject()
 build_subject.pipe(
