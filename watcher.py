@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import argparse
 
 import time
 from rx import operators as ops
@@ -11,6 +12,10 @@ from watchdog.observers import Observer
 
 
 class RebuildAndRunTestObserver(Observer):
+    def __init__(self,unittest_name,filter):
+        super().__init__()
+        self.unittest_name = unittest_name
+        self.filter = filter
     def on_next(self, event):
         print(f"{event.src_path} has been modified")
 
@@ -44,29 +49,32 @@ class RebuildAndRunTestObserver(Observer):
             # then run unit tests
             # unittest_name = "tonic_native_dart_class"
             # unittest_name = "my_fml_file"
-            unittest_name = sys.argv[1]
+            unittest_name = self.unittest_name
+            filter= self.filter
             subprocess.run([os.path.join(output, unittest_name + "_unittests" + (".exe" if is_win else "")),
-                            "--gtest_filter=-*TimeSensitiveTest*",
+                            "--gtest_filter="+(f"*{filter}*:" if filter is not None  else "") + "-*TimeSensitiveTest*",
                             "--gtest_shuffle", ],
+                            cwd=output,
                            check=True)
-        except:
-            pass
+        except Exception as err:
+            print(err)
 
     def on_error(self, error: Exception):
-        pass
+        print(error)
 
     def on_completed(self):
         pass
 
 
-if len(sys.argv) == 1:
-    print("Please specify test name")
-    sys.exit(1)
+cmd_parser = argparse.ArgumentParser(description="Watch file change and run unittest")
+cmd_parser.add_argument("test_name",type=str)
+cmd_parser.add_argument("--filter",type=str,required=False)
+args = cmd_parser.parse_args()
 
 build_subject = s.Subject()
 build_subject.pipe(
     ops.debounce(0.2)
-).subscribe(BackPressure.DROP(RebuildAndRunTestObserver(), 1))
+).subscribe(BackPressure.DROP(RebuildAndRunTestObserver(args.test_name,args.filter), 1))
 
 
 def on_created(event):
@@ -81,7 +89,8 @@ def on_modified(event):
     build_subject.on_next(event)
 
 
-patterns = ["*.c", "*.cc", "*.h", "*.gn", "*.dart"]
+
+patterns = ["*.c", "*.cc","*.cpp", "*.h", "*.gn", "*.dart"]
 event_handler = PatternMatchingEventHandler(patterns, None, False, True)
 event_handler.on_created = on_created
 event_handler.on_deleted = on_deleted
@@ -94,6 +103,8 @@ observer.start()
 try:
     while True:
         time.sleep(1)
+except Exception as err:
+    print(Exception,err)
 finally:
     observer.stop()
     observer.join()

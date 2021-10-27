@@ -19,6 +19,8 @@ target_include_directories(engine_build PRIVATE
         "${CMAKE_SOURCE_DIR}/engine/src"
         "${CMAKE_SOURCE_DIR}/engine/src/flutter"
         "${CMAKE_SOURCE_DIR}/engine/src/flutter/third_party"
+        "${CMAKE_SOURCE_DIR}/engine/src/flutter/third_party/txt/src"
         "${CMAKE_SOURCE_DIR}/engine/src/third_party/benchmark"
-        "${CMAKE_SOURCE_DIR}/engine/src/third_party/skia"
-        "${CMAKE_SOURCE_DIR}/engine/src/third_party/txt/src")
+        "${CMAKE_SOURCE_DIR}/engine/src/third_party/skia" )
+
+add_executable(fake_exe fake.cc)
