@@ -2,8 +2,8 @@ import os
 import subprocess
 import sys
 import argparse
-
 import time
+from settings import *
 from rx import operators as ops
 from rx import subject as s
 from rxpy_backpressure import BackPressure
@@ -12,52 +12,39 @@ from watchdog.observers import Observer
 
 
 class RebuildAndRunTestObserver(Observer):
-    def __init__(self,unittest_name,filter):
+    def __init__(self, unittest_name, filter):
         super().__init__()
         self.unittest_name = unittest_name
         self.filter = filter
+        self.engine_path = os.path.join(os.getcwd(), "engine")
+        self.source_path = os.path.join(self.engine_path,"src")
+        self.output = os.path.join(self.engine_path, "src", "out", "host_debug_unopt")
+        self.depot_tools_path = os.path.join(os.getcwd(), "depot_tools")
+        self.is_win = sys.platform.startswith('win')
+
     def on_next(self, event):
         print(f"{event.src_path} has been modified")
 
-        env = os.environ.copy()
-        is_win = sys.platform.startswith('win')
-        if is_win:
-            # visual studio 2019
-            vs_path = r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community"
-            # windows kits
-            winsdk_path = r"C:\Program Files (x86)\Windows Kits\10"
-            env["DEPOT_TOOLS_WIN_TOOLCHAIN"] = "0"
-            env["GYP_MSVS_OVERRIDE_PATH"] = vs_path
-            env["WINDOWSSDKDIR"] = winsdk_path
-
-        depot_tools_path = os.path.join(os.getcwd(), "depot_tools")
-        engine_path = os.path.join(os.getcwd(), "engine")
-
-        env["HTTP_PROXY"] = "http://127.0.0.1:9798"  # 设置代理
-        env["HTTPS_PROXY"] = "http://127.0.0.1:9798"  # 设置代理
-        env["PATH"] = depot_tools_path + os.pathsep + env["PATH"]
-
         try:
-            output = os.path.join(engine_path, "src", "out", "host_debug_unopt")
+            env = set_env(self.depot_tools_path, self.engine_path)
             # first recompile
-            subprocess.run([os.path.join(depot_tools_path, "ninja" + (".exe" if is_win else "")),
-                            "-C",
-                            output,
-                            ], env=env,
-                           check=True)
+            subprocess.run(
+                [os.path.join(self.depot_tools_path, "ninja" + (".bat" if self.is_win else "")), "-C", self.output],
+                cwd=self.source_path,
+                check=True,
+                env=env)
 
             # then run unit tests
-            # unittest_name = "tonic_native_dart_class"
-            # unittest_name = "my_fml_file"
             unittest_name = self.unittest_name
-            filter= self.filter
-            subprocess.run([os.path.join(output, unittest_name + "_unittests" + (".exe" if is_win else "")),
-                            "--gtest_filter="+(f"*{filter}*:" if filter is not None  else "") + "-*TimeSensitiveTest*",
+            pattern = self.filter
+            subprocess.run([os.path.join(self.output, unittest_name + "_unittests" + (".exe" if self.is_win else "")),
+                            "--gtest_filter=" + (f"*{pattern}*:" if pattern is not None else "")
+                            + "-*TimeSensitiveTest*",
                             "--gtest_shuffle", ],
-                            cwd=output,
+                           cwd=self.output,
                            check=True)
-        except Exception as err:
-            print(err)
+        except Exception as e:
+            print(e)
 
     def on_error(self, error: Exception):
         print(error)
@@ -67,14 +54,14 @@ class RebuildAndRunTestObserver(Observer):
 
 
 cmd_parser = argparse.ArgumentParser(description="Watch file change and run unittest")
-cmd_parser.add_argument("test_name",type=str)
-cmd_parser.add_argument("--filter",type=str,required=False)
+cmd_parser.add_argument("test_name", type=str)
+cmd_parser.add_argument("--filter", type=str, required=False)
 args = cmd_parser.parse_args()
 
 build_subject = s.Subject()
 build_subject.pipe(
     ops.debounce(0.2)
-).subscribe(BackPressure.DROP(RebuildAndRunTestObserver(args.test_name,args.filter), 1))
+).subscribe(BackPressure.DROP(RebuildAndRunTestObserver(args.test_name, args.filter), 1))
 
 
 def on_created(event):
@@ -89,8 +76,7 @@ def on_modified(event):
     build_subject.on_next(event)
 
 
-
-patterns = ["*.c", "*.cc","*.cpp", "*.h", "*.gn", "*.dart"]
+patterns = ["*.c", "*.cc", "*.cpp", "*.h", "*.gn", "*.dart"]
 event_handler = PatternMatchingEventHandler(patterns, None, False, True)
 event_handler.on_created = on_created
 event_handler.on_deleted = on_deleted
@@ -104,7 +90,7 @@ try:
     while True:
         time.sleep(1)
 except Exception as err:
-    print(Exception,err)
+    print(Exception, err)
 finally:
     observer.stop()
     observer.join()
