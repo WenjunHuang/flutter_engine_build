@@ -25,12 +25,17 @@ env = os.environ.copy()
 path = depot_tools_path + (";" if isWin else ":") + env["PATH"]
 env["PATH"] = path
 print(path)
-env["HTTP_PROXY"] = "http://127.0.0.1:9798"
-env["HTTPS_PROXY"] = "http://127.0.0.1:9798"
+env["HTTP_PROXY"] = "http://127.0.0.1:9799"
+env["HTTPS_PROXY"] = "http://127.0.0.1:9799"
 
-gclient_sufix = ""
+env = os.environ.copy()
 if isWin:
+    vs_path = r"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
+    winsdk_path = r"C:\Program Files (x86)\Windows Kits\10"
+
     env["DEPOT_TOOLS_WIN_TOOLCHAIN"] = "0"
+    env["GYP_MSVS_OVERRIDE_PATH"] = vs_path
+    env["WINDOWSSDKDIR"] = winsdk_path
     gclient_sufix = '.bat'
 
 os.chdir(engine_path)
